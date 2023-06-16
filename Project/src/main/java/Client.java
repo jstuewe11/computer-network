@@ -49,8 +49,6 @@ public class Client
                             else inputString = terms[randTerms] + " " + randNum + " " + randNum2;
                             //increase counter after an equation is sent
                             counter++;
-                            //have the thread sleep for the random amount of time
-                            Thread.sleep(randTime);
                             //write to the server
                             outToServer.writeUTF(inputString);
                             //if input is Exit close socket and close connection
@@ -60,6 +58,8 @@ public class Client
 				System.out.println("Connection closed");
 				break;
                             }
+			    //have the thread sleep for the random amount of time
+                            Thread.sleep(randTime);
                             //Get the info from server and print
                             String modifiedSentence = inFromServer.readUTF();
                             System.out.println(modifiedSentence);
