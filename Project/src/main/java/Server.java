@@ -1,4 +1,9 @@
-// Server Side Program
+/*
+Final Project - Server Side Program
+CS 4390.003 - Computer Networks - F22
+Leila Nasimi - LXN200006
+Jacob Stuewe - JWS170002
+*/
 
 import java.io.*;
 import java.text.*;
@@ -11,7 +16,7 @@ public class Server
 	public static void main(String[] args) throws IOException
 	{ 
 		ServerSocket welcomeSocket = new ServerSocket(6789);  //Server port = 6789
-		int index = -1;
+		int index = -1;                                       //Client number given to eaxh client
    
     System.out.println("**********************************");
     System.out.println("***   WELCOME TO MATH SERVER   ***");
@@ -23,15 +28,17 @@ public class Server
 			Socket connectionSocket = null;
 			try
 			{
-				connectionSocket = welcomeSocket.accept();  //Socket accepts incoming client requests
-        index++;
+				connectionSocket = welcomeSocket.accept();      //Socket accepts incoming client requests
+        index++;                                        //Specify a client number
 				System.out.println("\nClient " + index + " joined...\n" + connectionSocket);
 				
-				DataInputStream inFromClient = new DataInputStream(connectionSocket.getInputStream());
-				DataOutputStream outToClient = new DataOutputStream(connectionSocket.getOutputStream());
-        
-				Thread newClient = new ClientThread(index, connectionSocket, inFromClient, outToClient);
-				newClient.start();
+				DataInputStream inFromClient = new DataInputStream(connectionSocket.getInputStream());     //Data streams from and to the client
+				DataOutputStream outToClient = new DataOutputStream(connectionSocket.getOutputStream()); 
+
+        outToClient.writeUTF("Connection Established Successfully...");                           //Send acknowledgment to client
+            
+				Thread newClient = new ClientThread(index, connectionSocket, inFromClient, outToClient);  //Create a new thread for each client, so they multiple clients can run at the same time
+				newClient.start();                                                                        //Start the threat
 			}
 			catch (Exception e)
       {
@@ -44,22 +51,16 @@ public class Server
 //----------------------------------------------------------------------- ClientThread Class
 class ClientThread extends Thread
 {
-
-  //DateFormat joinDate = new SimpleDateFormat("MM/dd/yyyy");
-  //DateFormat joinTime = new SimpleDateFormat("hh:mm:ss");
-  //DateFormat exitTime = new SimpleDateFormat("hh:mm:ss");
-  //String[][] clientLog = new String[3][100];
-  //Date date = new Date(System.currentTimeMillis());
-  long[][] clientLog = new long[2][100];
-  long currentDateTime;
-  long initialDateTime;
+  long[][] clientLog = new long[2][100];              //Array to log client info
+  long joinDateTime;                                  //Date and time client connects the server
+  long endDateTime;                                   //Date and time client disconnects from server
  
-	final DataInputStream inFromClient;
+	final DataInputStream inFromClient;                 //Data input/output stream objects to communicate(read/write) with client
 	final DataOutputStream outToClient;
-	final Socket connectionSocket;
+	final Socket connectionSocket;                      //Create a socket object for server
   final int index; 
 	
-	public ClientThread(int index, Socket connectionSocket, DataInputStream inFromClient, DataOutputStream outToClient)
+	public ClientThread(int index, Socket connectionSocket, DataInputStream inFromClient, DataOutputStream outToClient)  //ClientThread Class's constructor
 	{
     this.index = index;
 		this.connectionSocket = connectionSocket;
@@ -68,93 +69,81 @@ class ClientThread extends Thread
 	}
 
 	@Override
-	public void run()
+	public void run()     //Start running the thread
 	{
-            initialDateTime = System.currentTimeMillis();
-            Date initialDate = new Date(initialDateTime);
-    clientLog[0][index] = System.currentTimeMillis();
+     joinDateTime = System.currentTimeMillis();          //Log the client's join time
+     Date joinDate = new Date(joinDateTime);
+     clientLog[0][index] = System.currentTimeMillis();
     
-		String clientSentence;
-		String clientResponse;
-    String[] tokens;
-    String ack = "\nConnection Established Successfully...";
-    int result;    
-
-    //clientLog[0][index] = joinDate.format(date);
-    //clientLog[1][index] = joinTime.format(date); 
+		String clientSentence;                               //Request received from client                            
+		String clientResponse;                               //Result of client's request
+    String[] tokens;                                    //Array to store parts of client request (operator, int, int)
+    int result;                                          //Result of math calculation
         
-		while (true)
+		while (true)                                         //While the client and server are connected
 		{
 			try
       {        
-				outToClient.writeUTF(ack + "\nType an operator [Add/Sub/Mul/Div] followed by 2 numbers. \nType \"Exit\" to terminate...");
-        ack = "";
-				clientSentence = inFromClient.readUTF();
-        
+				clientSentence = inFromClient.readUTF();        //Read request from client and orint on screen
         System.out.println("\nClient " + this.index + ":\t" + clientSentence);
-				if(clientSentence.equals("Exit"))
+        
+				if(clientSentence.equals("Exit"))              //If client request is "Exit", close the client connection and print log
 				{
-          //clientLog[2][index] = exitTime.format(date);
           clientLog[1][index] = System.currentTimeMillis();
-          currentDateTime = System.currentTimeMillis();
-          Date currentDate = new Date(currentDateTime);
+          endDateTime = System.currentTimeMillis();
+          Date endDate = new Date(endDateTime);
 					this.connectionSocket.close();
           System.out.println("Client " + index + " log history...");
-          //System.out.println("Date joined: \t" + clientLog[0][index]);
-          //System.out.println("Time joined: \t" + clientLog[1][index]);
-          //System.out.println("Time exited: \t" + clientLog[2][index]);
-          
-          System.out.println("Joined: \t" + initialDate);
-          System.out.println("  Left: \t" + currentDate);
+          System.out.println("Joined: \t" + joinDate);
+          System.out.println("  Left: \t" + endDate);
           System.out.println(" Total: \t" + ((clientLog[1][index] - clientLog[0][index])/1000.0) + " seconds" );
-          
 					System.out.println("Connection closed");
 					break;
 				}
 				
-        tokens = clientSentence.split("\\s");          
-				switch (tokens[0])
+        tokens = clientSentence.split("\\s");          //Break down the client request into 3 parts ((operator, int, int)  
+				switch (tokens[0])                             //Based on the operator, do different calculations
         {
 				
-					case "Add" :
+					case "Add" :                                 //If operator is Add: first number + second number, and send the rsult back
             result = Integer.parseInt(tokens[1]) + Integer.parseInt(tokens[2]);
 						clientResponse = tokens[1] + " + " + tokens[2] + " = " + result;
+            outToClient.writeUTF("Server Result: " + clientResponse);
             System.out.println("Result:\t\t" + clientResponse);
-						outToClient.writeUTF("Server Result: " + clientResponse);
 						break;
 					
-					case "Sub" :
+					case "Sub" :                                 //If operator is Sub: first number - second number, and send the rsult back
             result = Integer.parseInt(tokens[1]) - Integer.parseInt(tokens[2]);
 						clientResponse = tokens[1] + " - " + tokens[2] + " = " + result;
+            outToClient.writeUTF("Server Result: " + clientResponse);
             System.out.println("Result:\t\t" + clientResponse);
-						outToClient.writeUTF("Server Result: " + clientResponse);
 						break;
             
-					case "Mul" :
+					case "Mul" :                                 //If operator is Mul: first number * second number, and send the rsult back
             result = Integer.parseInt(tokens[1]) * Integer.parseInt(tokens[2]);
 						clientResponse = tokens[1] + " * " + tokens[2] + " = " + result;
+            outToClient.writeUTF("Server Result: " + clientResponse);
             System.out.println("Result:\t\t" + clientResponse);
-						outToClient.writeUTF("Server Result: " + clientResponse);
 						break;
             	
-					case "Div" :
-            if (Integer.parseInt(tokens[2]) == 0)
+					case "Div" :                                 //If operator is Div: first number / second number, and send the rsult back
+            if (Integer.parseInt(tokens[2]) == 0)      //If second number is 0, return an error
             {
                 clientResponse = "Division by zero is not allowed";
-                System.out.println("Result:\t\t" + clientResponse);
-					    	outToClient.writeUTF("Server Result: " + clientResponse);
+            outToClient.writeUTF("Server Result: " + clientResponse);
+            System.out.println("Result:\t\t" + clientResponse);
                 break;
             }
             result = Integer.parseInt(tokens[1]) / Integer.parseInt(tokens[2]);
 						clientResponse = tokens[1] + " / " + tokens[2] + " = " + result;
+            outToClient.writeUTF("Server Result: " + clientResponse);
             System.out.println("Result:\t\t" + clientResponse);
-						outToClient.writeUTF("Server Result: " + clientResponse);
 						break;
 						
 					default:
 						clientResponse = "Invalid input";
+            outToClient.writeUTF("Server Result: " + clientResponse);
             System.out.println("Result:\t\t" + clientResponse);
-						outToClient.writeUTF("Server Result: " + clientResponse);
 						break;
 				} //End switch
 			}
@@ -166,7 +155,7 @@ class ClientThread extends Thread
 		
 		try
 		{
-			this.inFromClient.close();
+			this.inFromClient.close();                            
 			this.outToClient.close();
 			
 		}
